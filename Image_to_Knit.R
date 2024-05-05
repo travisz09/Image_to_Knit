@@ -1,7 +1,7 @@
 #Image to Knit
 ##Travis Zalesky
 ##5/4/2024
-##V1.0.0
+##V1.0.1
 
 ##Objective: To convert black and white imagery to a three tone knitting pattern.
 ###   Output visual guide and pattern text.
@@ -21,6 +21,9 @@ tryCatch({plotRGB(rast)},
           error = function(e) {plot(rast)})
 
 rast
+
+orig_h <- dim(rast)[1]
+orig_w <- dim(rast)[2]
 
 #Adjust scale factor for desired resolution
 scl_fct <- 10
@@ -46,10 +49,12 @@ plot(agg)
 #Select default band, default = Red
 band <- "R"
 
-plot(subset(agg, names(agg) == band))
+plot(subset(agg, names(agg) == band),
+     legend = F, axes = F)
 
-jpeg(file = "pattern.jpeg")
-plot(subset(agg, names(agg) == band))
+jpeg(file = "pattern.jpeg", width = orig_w, height = orig_h)
+plot(subset(agg, names(agg) == band),
+     legend = F, axes = F, col = c("ghostwhite", "gray", "black"))
 dev.off()
 
 total <- dim(agg$R)[1]*dim(agg$R)[2]
