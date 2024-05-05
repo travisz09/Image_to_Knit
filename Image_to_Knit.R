@@ -1,16 +1,23 @@
 #Image to Knit
 ##Travis Zalesky
 ##5/4/2024
-##V1.0.1
+##V1.0.2
 
 ##Objective: To convert black and white imagery to a three tone knitting pattern.
 ###   Output visual guide and pattern text.
+
+#Version History:
+##1.0.0 - Initial Commit
+##1.0.1 - Bug Fix: Maintain original image size for resacled image.
+##1.1.0 - Feat: Add support for more than 3 colors (i.e. multiple gray tones)
 
 #packages
 ##install.packages("terra")
 library(terra)
 ##install.packages("progress")
 library(progress)
+#install.packages("grDevices")
+library(grDevices)
 
 img <- file.choose()
 
@@ -28,6 +35,9 @@ orig_w <- dim(rast)[2]
 #Adjust scale factor for desired resolution
 scl_fct <- 10
 
+#Adjust n colors
+n_col <- 4
+
 agg <- aggregate(rast, fact = scl_fct, fun = "mean")
 
 agg
@@ -38,36 +48,54 @@ tryCatch({plotRGB(agg)},
 names(agg)[1] <- "R"
 
 #for black and white images, select red band
-plot(agg)
+plot(agg$R)
 
-agg[agg <= 83] <- 1
-agg[agg > 83 & agg <= 166] <- 2
-agg[agg > 166] <- 3
+div <- 255/(n_col+1)
+for (i in c(1:(n_col+1))) {
+  agg[agg <= (div*i) & agg >= (div*(i-1))] <- i
+}
 
-plot(agg)
+agg[agg > n_col] <- n_col
+
+plot(agg$R)
 
 #Select default band, default = Red
 band <- "R"
 
 plot(subset(agg, names(agg) == band),
-     legend = F, axes = F)
+     legend = F, axes = F, col = gray.colors(n = 4, start = 0, end = 1))
 
 jpeg(file = "pattern.jpeg", width = orig_w, height = orig_h)
 plot(subset(agg, names(agg) == band),
-     legend = F, axes = F, col = c("ghostwhite", "gray", "black"))
+     legend = F, axes = F, col = gray.colors(n = 4, start = 0, end = 1))
 dev.off()
+
+get_cols <- function(val, n_col) {
+  if (val == 1) {
+      col <- "white"
+    }
+    if (val == max(n_col)) {
+      col <- "black"
+    }
+    if (val > 1 & val < max(n_col)) {
+      col <- paste("gray", val-1, sep = "_")
+    }
+  return(col)
+}
+
+#get_cols(4, 4)
 
 total <- dim(agg$R)[1]*dim(agg$R)[2]
 pb <- progress_bar$new(format = "  scanning image [:bar] :percent eta: :eta",
                        total = total, width = 60)
-pattern_text <- function(agg) {
+pattern_text <- function(img, n_col) {
   
   pb$tick(0)
   
   n <- 0
   row_sum <- 0
   n_row <- 0
-  n_cols <- dim(agg)[2]
+  n_cols <- dim(img)[2]
   col <- NA
   lst_col <- NA
   txt <- ""
@@ -80,18 +108,10 @@ pattern_text <- function(agg) {
     row_sum <- row_sum + 1
     
     if (i == 1) {
-      if (is.nan(pix)) {
+      if (is.nan(pix) | is.na(pix)) {
         next
       }
-      if (pix == 1) {
-        col <- "white"
-      } 
-      if (pix == 2) {
-        col <- "grey"
-      }
-      if (pix == 3) {
-        col <- "black"
-      }
+      col <- get_cols(as.numeric(pix), n_col)
       lst_col <- col
       next
     }
@@ -101,18 +121,10 @@ pattern_text <- function(agg) {
     #Sys.sleep(0.2)
     
     if (i%%n_cols != 0) {
-      if (is.nan(pix)) {
+      if (is.nan(pix) | is.na(pix)) {
         next
       }
-      if (pix == 1) {
-        col <- "white"
-      } 
-      if (pix == 2) {
-        col <- "grey"
-      }
-      if (pix == 3) {
-        col <- "black"
-      }
+      col <- get_cols(pix, n_cols)
       if (is.na(lst_col)) {
         txt <- paste(txt, n, " ", lst_col, "\n", sep = "")
       } else { #if !is.na(lst_col)
@@ -124,7 +136,7 @@ pattern_text <- function(agg) {
       }
     }
     if (i%%n_cols == 0) {
-      if (is.nan(pix)) {
+      if (is.nan(pix) | is.na(pix)) {
         txt <- paste(txt, n, " ", lst_col, "\n", sep = "")
         txt <- paste(txt, "New line (row sum = ", row_sum, ")", "\n", sep = "")
         ##reset count
@@ -132,15 +144,7 @@ pattern_text <- function(agg) {
         row_sum <- 0
         next
       }
-      if (pix == 1) {
-        col <- "white"
-      } 
-      if (pix == 2) {
-        col <- "grey"
-      }
-      if (pix == 3) {
-        col <- "black"
-      }
+      col <- get_cols(pix, n_cols)
       if (is.na(lst_col)) {
         txt <- paste(txt, n, " ", lst_col, "\n", sep = "")
       } else { #if !is.na(lst_col)
@@ -164,4 +168,4 @@ pattern_text <- function(agg) {
   
 }
 
-pattern_text(agg)
+pattern_text(agg, n_col)
