@@ -1,7 +1,7 @@
 #Image to Knit
 ##Travis Zalesky
 ##5/4/2024
-##V1.0.2
+##V1.1.0
 
 ##Objective: To convert black and white imagery to a three tone knitting pattern.
 ###   Output visual guide and pattern text.
